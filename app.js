@@ -8,33 +8,46 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 ctx.fillStyle = "#0d1117";
 ctx.strokeStyle = "white";
+ctx.lineWidth = 1;
 
-const centerX = canvas.width / 2;
-const centerY = canvas.height / 2;
+let centerX = 16.622;
+let centerY = 47.23;
 
-const minX = 16.61;
-const minY = 47.18;
-const size = 0.1;
+let scale = 10000;
 
 const aspectRatio = canvas.width / canvas.height;
 
-const maxX = minX + size * aspectRatio;
-const maxY = minY + size;
-
 const mapX = (x) => {
-    return ((x - minX) / (maxX - minX)) * canvas.width + (centerX - (size * canvas.width) / 2);
+    return (x - centerX) * scale + (canvas.width) / 2;
 }
 
 const mapY = (y) => {
-    return canvas.height - (((y - minY) / (maxY - minY)) * canvas.height);
+    return -(y - centerY) * scale + (canvas.height) / 2;
 }
 
 const invX = (x) => {
-    return ((x - (centerX - (size * canvas.width) / 2)) / canvas.width) * (maxX - minX) + minX;
+    return (x - (canvas.width) / 2) / scale + centerX
 }
 
 const invY = (y) => {
-    return ((canvas.height - y) / canvas.height) * (maxY - minY) + minY;
+    return -(y - (canvas.height) / 2) / scale + centerY
+}
+
+const drawLines = (lines, color) => {
+    ctx.strokeStyle = color;
+    for (const line of lines) {
+        ctx.beginPath();
+        ctx.moveTo(mapX(line[0]), mapY(line[1]));
+        ctx.lineTo(mapX(line[2]), mapY(line[3]));
+        ctx.stroke();
+    }
+}
+
+const drawNode = (node, color) => {
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.arc(mapX(node.x), mapY(node.y), 5, 0, 2 * Math.PI);
+    ctx.stroke();
 }
 
 const closestNode = (nodes, x, y) => {
@@ -50,21 +63,23 @@ const closestNode = (nodes, x, y) => {
     return closest
 }
 
-const dijkstra = (nodes, start, end) => {
+const aStar = (nodes, start, end) => {
     const visited = new Set();
-    const queue = [[start, 0]];
+    const queue = new Heap((a, b) => a.g + a.h - b.g - b.h);
+    queue.push({node: start, g:0, h:0});
     const previous = new Map();
+    const search = [];
 
     let finished = false;
 
     while (!finished) {
-        queue.sort((a, b) => a[1] - b[1]);
-        const [node, distance] = queue.shift();
+        const {node: node, g: distance} = queue.pop();
         for (const connection of nodes[node].connections) {
             if (!visited.has(connection)) {
                 visited.add(connection);
-                const newDistance = (nodes[node].x - nodes[connection].x) ** 2 + (nodes[node].y - nodes[connection].y) ** 2
-                queue.push([connection, distance + newDistance]);
+                const newDistance = Math.sqrt((nodes[node].x - nodes[connection].x) ** 2 + (nodes[node].y - nodes[connection].y) ** 2)
+                const endDistance = Math.sqrt((nodes[end].x - nodes[connection].x) ** 2 + (nodes[end].y - nodes[connection].y) ** 2)
+                queue.push({node: connection, g: distance + newDistance, h: endDistance});
                 previous.set(connection, node);
             }
             if (connection === end) {
@@ -74,65 +89,98 @@ const dijkstra = (nodes, start, end) => {
         }
 
         const prev = previous.get(node);
-        if (prev !== undefined) {
-            ctx.strokeStyle = 'blue';
-            ctx.beginPath();
-            ctx.moveTo(mapX(nodes[node].x), mapY(nodes[node].y));
-            ctx.lineTo(mapX(nodes[prev].x), mapY(nodes[prev].y));
-            ctx.stroke();
-        }
+        if (prev !== undefined) search.push([nodes[node].x, nodes[node].y, nodes[prev].x, nodes[prev].y]);
+
     }
 
     let current = end;
+    const path = [];
     while (current !== start) {
-        ctx.strokeStyle = 'lime';
-        ctx.beginPath();
-        ctx.moveTo(mapX(nodes[current].x), mapY(nodes[current].y));
-        ctx.lineTo(mapX(nodes[previous.get(current)].x), mapY(nodes[previous.get(current)].y));
-        ctx.stroke();
-        current = previous.get(current);
+        const prevNode = previous.get(current);
+        path.push([nodes[current].x, nodes[current].y, nodes[prevNode].x, nodes[prevNode].y]);
+        current = prevNode;
     }
+
+    return [search, path];
 }
 
 (async () => {
-    const nodes = await (await fetch('./nodes.json')).json();
+    const { nodes, edges } = await (await fetch('./nodes.json')).json();
 
-    for (const node of nodes) {
-        for (const connection of node.connections) {
-            ctx.beginPath();
-            ctx.moveTo(mapX(node.x), mapY(node.y));
-            const connectedNode = nodes[connection];
-            ctx.lineTo(mapX(connectedNode.x), mapY(connectedNode.y));
-            ctx.stroke();
-        }
-    }
+    drawLines(edges, 'white');
 
     let start = undefined;
     let end = undefined;
+    let search = [];
+    let path = [];
 
-    canvas.addEventListener('click', (e) => {
-        const x = e.clientX - canvas.offsetLeft;
-        const y = e.clientY - canvas.offsetTop;
+    const update = () => {
+        clearCanvas();
+        drawLines(edges, 'white');
+        if (start !== undefined) drawNode(start, 'lime');
+        if (end !== undefined) drawNode(end, 'red');
+        drawLines(search, 'blue');
+        drawLines(path, 'lime');
+    }
 
-        const closest = closestNode(nodes, invX(x), invY(y))
+    let drag = false;
+    let dragStart = undefined;
+    let dragDistance = 0;
 
-        if (start === undefined || end) {
-            start = closest;
-            end = undefined;
-            ctx.strokeStyle = 'lime';
-            ctx.beginPath()
-            ctx.arc(mapX(closest.x), mapY(closest.y), 5, 0, 2 * Math.PI);
-            ctx.stroke();
+    canvas.addEventListener('mousedown', (e) => {
+        drag = true;
+        dragDistance = 0;
+        dragStart = [e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop];
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (drag) {
+            const x = e.clientX - canvas.offsetLeft;
+            const y = e.clientY - canvas.offsetTop;
+            const deltaX = x - dragStart[0];
+            const deltaY = y - dragStart[1];
+
+            centerX -= deltaX / scale;
+            centerY += deltaY / scale;
+
+            update();
+
+            dragDistance += Math.sqrt(deltaX ** 2 + deltaY ** 2);
+            dragStart = [x, y];
         }
-        else if (end === undefined) {
-            end = closest;
-            ctx.strokeStyle = 'red';
-            ctx.beginPath()
-            ctx.arc(mapX(closest.x), mapY(closest.y), 5, 0, 2 * Math.PI);
-            ctx.stroke();
-            dijkstra(nodes, nodes.indexOf(start), nodes.indexOf(end));
+    }
+    );
+
+    canvas.addEventListener('mouseup', (e) => {
+        if (drag) {
+            drag = false;
+            if (dragDistance < 10) {
+                const x = e.clientX - canvas.offsetLeft;
+                const y = e.clientY - canvas.offsetTop;
+
+                const closest = closestNode(nodes, invX(x), invY(y))
+
+                if (start === undefined || end) {
+                    start = closest;
+                    end = undefined;
+                    drawNode(start, 'lime');
+                }
+                else if (end === undefined) {
+                    end = closest;
+                    drawNode(end, 'red');
+                    [search, path] = aStar(nodes, nodes.indexOf(start), nodes.indexOf(end));
+                    update();
+                }
+            }
         }
-    })
+        dragDistance = 0;
+    });
+
+    document.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        scale *= (-event.deltaY / 1000) + 1;
+        update();
+    });
 
 })()
 
