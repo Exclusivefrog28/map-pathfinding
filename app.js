@@ -2,6 +2,7 @@ const clearCanvas = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
+const infoText = document.getElementById("infoText");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
@@ -66,31 +67,37 @@ const closestNode = (nodes, x, y) => {
 const aStar = (nodes, start, end) => {
     const visited = new Set();
     const queue = new Heap((a, b) => a.g + a.h - b.g - b.h);
-    queue.push({node: start, g:0, h:0});
+    queue.push({ node: start, g: 0, h: 0 });
     const previous = new Map();
     const search = [];
 
     let finished = false;
 
-    while (!finished) {
-        const {node: node, g: distance} = queue.pop();
+    while (!queue.empty() && !finished) {
+        const { node: node, g: distance } = queue.pop();
         for (const connection of nodes[node].connections) {
             if (!visited.has(connection)) {
                 visited.add(connection);
                 const newDistance = Math.sqrt((nodes[node].x - nodes[connection].x) ** 2 + (nodes[node].y - nodes[connection].y) ** 2)
                 const endDistance = Math.sqrt((nodes[end].x - nodes[connection].x) ** 2 + (nodes[end].y - nodes[connection].y) ** 2)
-                queue.push({node: connection, g: distance + newDistance, h: endDistance});
+                queue.push({ node: connection, g: distance + newDistance, h: endDistance });
                 previous.set(connection, node);
+                if (connection === end) {
+                    infoText.innerText = `Route found, length: ${((distance + newDistance) * 60).toFixed(3)}'`;
+                    finished = true;
+                    break;
+                };
             }
-            if (connection === end) {
-                finished = true;
-                break;
-            };
+
         }
 
         const prev = previous.get(node);
         if (prev !== undefined) search.push([nodes[node].x, nodes[node].y, nodes[prev].x, nodes[prev].y]);
+    }
 
+    if (!finished) {
+        infoText.innerText = 'No path found';
+        return [[], []];
     }
 
     let current = end;
@@ -163,6 +170,7 @@ const aStar = (nodes, start, end) => {
                 if (start === undefined || end) {
                     start = closest;
                     end = undefined;
+                    infoText.innerText = 'Select the target location';
                     drawNode(start, 'lime');
                 }
                 else if (end === undefined) {
@@ -180,7 +188,7 @@ const aStar = (nodes, start, end) => {
         event.preventDefault();
         scale *= (-event.deltaY / 1000) + 1;
         update();
-    });
+    }, { passive: false });
 
 })()
 
