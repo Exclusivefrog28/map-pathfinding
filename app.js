@@ -16,14 +16,14 @@ let centerY = 47.23;
 
 let scale = 10000;
 
-const aspectRatio = canvas.width / canvas.height;
+const correctionRatio = 1.4;
 
 const mapX = (x) => {
     return (x - centerX) * scale + (canvas.width) / 2;
 }
 
 const mapY = (y) => {
-    return -(y - centerY) * scale + (canvas.height) / 2;
+    return -(y - centerY) * correctionRatio * scale + (canvas.height) / 2;
 }
 
 const invX = (x) => {
@@ -31,7 +31,7 @@ const invX = (x) => {
 }
 
 const invY = (y) => {
-    return -(y - (canvas.height) / 2) / scale + centerY
+    return -(y - (canvas.height) / 2) / scale / correctionRatio + centerY
 }
 
 const drawLines = (lines, color) => {
@@ -78,12 +78,12 @@ const aStar = (nodes, start, end) => {
         for (const connection of nodes[node].connections) {
             if (!visited.has(connection)) {
                 visited.add(connection);
-                const newDistance = Math.sqrt((nodes[node].x - nodes[connection].x) ** 2 + (nodes[node].y - nodes[connection].y) ** 2)
-                const endDistance = Math.sqrt((nodes[end].x - nodes[connection].x) ** 2 + (nodes[end].y - nodes[connection].y) ** 2)
+                const newDistance = spherical_distance(nodes[node].x, nodes[node].y, nodes[connection].x, nodes[connection].y)
+                const endDistance = spherical_distance(nodes[end].x, nodes[end].y, nodes[connection].x, nodes[connection].y)
                 queue.push({ node: connection, g: distance + newDistance, h: endDistance });
                 previous.set(connection, node);
                 if (connection === end) {
-                    infoText.innerText = `Route found, length: ${((distance + newDistance) * 60).toFixed(3)}'`;
+                    infoText.innerText = `Route found, length: ${((distance + newDistance) / 1000).toFixed(3)}km`;
                     finished = true;
                     break;
                 };
