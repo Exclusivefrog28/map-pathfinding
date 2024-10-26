@@ -36,12 +36,12 @@ const invY = (y) => {
 
 const drawLines = (lines, color) => {
     ctx.strokeStyle = color;
+    ctx.beginPath();
     for (const line of lines) {
-        ctx.beginPath();
         ctx.moveTo(mapX(line[0]), mapY(line[1]));
         ctx.lineTo(mapX(line[2]), mapY(line[3]));
-        ctx.stroke();
     }
+    ctx.stroke();
 }
 
 const drawNode = (node, color) => {
@@ -120,6 +120,7 @@ const aStar = (nodes, start, end) => {
     let end = undefined;
     let search = [];
     let path = [];
+    let drawing = false;
 
     const update = () => {
         clearCanvas();
@@ -158,10 +159,10 @@ const aStar = (nodes, start, end) => {
     }
     );
 
-    canvas.addEventListener('mouseup', (e) => {
+    canvas.addEventListener('mouseup', async (e) => {
         if (drag) {
             drag = false;
-            if (dragDistance < 10) {
+            if (dragDistance < 10 && !drawing) {
                 const x = e.clientX - canvas.offsetLeft;
                 const y = e.clientY - canvas.offsetTop;
 
@@ -176,7 +177,30 @@ const aStar = (nodes, start, end) => {
                 else if (end === undefined) {
                     end = closest;
                     drawNode(end, 'red');
-                    [search, path] = aStar(nodes, nodes.indexOf(start), nodes.indexOf(end));
+                    search = [];
+                    path = [];
+                    infoText.innerText = 'Finding route...';
+                    const [newSearch, newPath] = aStar(nodes, nodes.indexOf(start), nodes.indexOf(end));
+                    drawing = true;
+                    let additionSize = 1;
+                    for (let i = 0; i < newSearch.length;) {
+                        await new Promise(resolve => setTimeout(resolve, 1));
+                        const end = Math.min(i + additionSize, newSearch.length);
+                        search = search.concat(newSearch.slice(i, i + additionSize));
+                        i += additionSize;
+                        additionSize += 1;
+                        update();
+                    }
+                    additionSize = 1;
+                    for (let i = 0; i < newPath.length; ) {
+                        await new Promise(resolve => setTimeout(resolve, 1));
+                        const end = Math.min(i + additionSize, newPath.length);
+                        path = path.concat(newPath.slice(i, i + additionSize));
+                        i += additionSize;
+                        additionSize += 1;
+                        update();
+                    }
+                    drawing = false;
                     update();
                 }
             }
