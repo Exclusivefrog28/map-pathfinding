@@ -1,4 +1,4 @@
-const mapData = require('./szhely.json');
+const mapData = require('./vas.json');
 const { writeFile } = require('fs');
 
 const nodes = [];
@@ -41,6 +41,6 @@ for (const feature of mapData.features) {
 //     if (node.y < minY) minY = node.y;
 //     if (node.y > maxY) maxY = node.y;
 // }
-// console.log(minX, maxX, minY, maxY);
+// console.log((minX + maxX) / 2, (minY + maxY )/2);
 
-writeFile('nodes.json', JSON.stringify({ nodes: nodes, edges: edges }), (e) => { console.log(e) });
+writeFile('nodes.json', JSON.stringify({ nodes: nodes, edges: edges }), (e) => { if (e) console.log(e) });

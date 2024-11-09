@@ -9,12 +9,12 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 ctx.fillStyle = "#0d1117";
 ctx.strokeStyle = "white";
-ctx.lineWidth = 1;
+ctx.lineWidth = 0.5;
 
-let centerX = 16.622;
-let centerY = 47.23;
+let centerX = 16.71319665;
+let centerY = 47.09270495;
 
-let scale = 10000;
+let scale = 800;
 
 const correctionRatio = 1.4;
 
