@@ -65,6 +65,7 @@ const closestNode = (nodes, x, y) => {
 }
 
 const aStar = (nodes, start, end) => {
+    const startTime = performance.now();
     const visited = new Set();
     const queue = new Heap((a, b) => a.g + a.h - b.g - b.h);
     queue.push({ node: start, g: 0, h: 0 });
@@ -83,7 +84,7 @@ const aStar = (nodes, start, end) => {
                 queue.push({ node: connection, g: distance + newDistance, h: endDistance });
                 previous.set(connection, node);
                 if (connection === end) {
-                    infoText.innerText = `Route found, length: ${((distance + newDistance) / 1000).toFixed(3)}km`;
+                    infoText.innerText = `Route found in ${((performance.now() - startTime)).toFixed(0)}ms, length: ${((distance + newDistance) / 1000).toFixed(3)}km`;
                     finished = true;
                     break;
                 };
