@@ -1,10 +1,26 @@
 const flattening = 1 / 298.25
 const radius = 6378137.0
 
+/**
+ * Converts an angle from degrees to radians.
+ *
+ * @param {number} degree The angle in degrees.
+ * @returns {number} The angle in radians.
+ */
 const degreeToRadian = (degree) => {
     return degree * Math.PI / 180
 }
 
+/**
+ * Returns the spherical distance between two points on the surface of a
+ * slightly oblate spheroid (Earth) in meters.
+ *
+ * @param {number} x1 X coordinate of the first point
+ * @param {number} y1 Y coordinate of the first point
+ * @param {number} x2 X coordinate of the second point
+ * @param {number} y2 Y coordinate of the second point
+ * @returns {number}
+ */
 const spherical_distance = (x1, y1, x2, y2) => {
     const lat1 = degreeToRadian(y1)
     const lat2 = degreeToRadian(y2)

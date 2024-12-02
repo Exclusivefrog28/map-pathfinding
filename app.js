@@ -9,7 +9,6 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 ctx.fillStyle = "#0d1117";
 ctx.strokeStyle = "white";
-ctx.lineWidth = 0.5;
 
 let centerX = 16.71319665;
 let centerY = 47.09270495;
@@ -18,23 +17,55 @@ let scale = 800;
 
 const correctionRatio = 1.4;
 
+/**
+ * Maps a geographic x coordinate to a canvas x coordinate.
+ *
+ * @param {number} x - geographic x coordinate
+ * @returns {number} canvas x coordinate
+ */
 const mapX = (x) => {
     return (x - centerX) * scale + (canvas.width) / 2;
 }
 
+/**
+ * Maps a geographic y coordinate to a canvas y coordinate.
+ *
+ * @param {number} y - geographic y coordinate
+ * @returns {number} canvas y coordinate
+ */
 const mapY = (y) => {
     return -(y - centerY) * correctionRatio * scale + (canvas.height) / 2;
 }
 
+/**
+ * Maps a canvas x coordinate to a geographic x coordinate.
+ *
+ * @param {number} x - canvas x coordinate
+ * @returns {number} geographic x coordinate
+ */
 const invX = (x) => {
     return (x - (canvas.width) / 2) / scale + centerX
 }
 
+/**
+ * Maps a canvas y coordinate to a geographic y coordinate.
+ *
+ * @param {number} y - canvas y coordinate
+ * @returns {number} geographic y coordinate
+ */
 const invY = (y) => {
     return -(y - (canvas.height) / 2) / scale / correctionRatio + centerY
 }
 
-const drawLines = (lines, color) => {
+/**
+ * Draws a series of lines on the canvas, given as an array of [x1, y1, x2, y2]
+ * coordinates. The lines are drawn in the given color.
+ *
+ * @param {Array} lines - an array of lines to be drawn
+ * @param {string} color - the color to draw the lines in
+ */
+const drawLines = (lines, color, width=0.5) => {
+    ctx.lineWidth = width;
     ctx.strokeStyle = color;
     ctx.beginPath();
     for (const line of lines) {
@@ -44,13 +75,28 @@ const drawLines = (lines, color) => {
     ctx.stroke();
 }
 
+/**
+ * Draws a node on the canvas at the specified coordinates with the given color.
+ *
+ * @param {Object} node - The node to be drawn, containing x and y properties.
+ * @param {string} color - The color to draw the node with.
+ */
 const drawNode = (node, color) => {
     ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(mapX(node.x), mapY(node.y), 5, 0, 2 * Math.PI);
     ctx.stroke();
 }
 
+/**
+ * Finds the closest node to the specified coordinates in the given array of nodes.
+ *
+ * @param {Array<Object>} nodes - an array of objects with x and y properties.
+ * @param {number} x - the x coordinate to find the closest node to.
+ * @param {number} y - the y coordinate to find the closest node to.
+ * @returns {Object} the node in the array that is closest to the specified coordinates.
+ */
 const closestNode = (nodes, x, y) => {
     let closest = nodes[0];
     let closestDistance = (x - closest.x) ** 2 + (y - closest.y) ** 2
@@ -64,8 +110,18 @@ const closestNode = (nodes, x, y) => {
     return closest
 }
 
+/**
+ * Finds the shortest path between two nodes using the A* algorithm.
+ *
+ * @param {Array<Object>} nodes - an array of objects with x and y properties.
+ * @param {number} start - the index of the starting node in the array.
+ * @param {number} end - the index of the ending node in the array.
+ * @returns {Array<Array>} two arrays of coordinates, representing the edges of the search route and the correct shortest path
+ */
 const aStar = (nodes, start, end) => {
     const startTime = performance.now();
+    let computedEdges = 0;
+
     const visited = new Set();
     const queue = new Heap((a, b) => a.g + a.h - b.g - b.h);
     queue.push({ node: start, g: 0, h: 0 });
@@ -83,8 +139,11 @@ const aStar = (nodes, start, end) => {
                 const endDistance = spherical_distance(nodes[end].x, nodes[end].y, nodes[connection].x, nodes[connection].y)
                 queue.push({ node: connection, g: distance + newDistance, h: endDistance });
                 previous.set(connection, node);
+                computedEdges++;
                 if (connection === end) {
-                    infoText.innerText = `Route found in ${((performance.now() - startTime)).toFixed(0)}ms, length: ${((distance + newDistance) / 1000).toFixed(3)}km`;
+                    infoText.innerHTML = `route found in ${((performance.now() - startTime)).toFixed(0)}ms<br/>
+                    with a distance of ${((distance + newDistance) / 1000).toFixed(3)}km<br/>
+                    computed the length of ${computedEdges.toLocaleString('US')} edges`;
                     finished = true;
                     break;
                 };
@@ -97,7 +156,7 @@ const aStar = (nodes, start, end) => {
     }
 
     if (!finished) {
-        infoText.innerText = 'No path found';
+        infoText.innerText = 'no path found';
         return [[], []];
     }
 
@@ -126,10 +185,10 @@ const aStar = (nodes, start, end) => {
     const update = () => {
         clearCanvas();
         drawLines(edges, 'white');
+        drawLines(search, 'blue');
+        drawLines(path, 'lime', 1);
         if (start !== undefined) drawNode(start, 'lime');
         if (end !== undefined) drawNode(end, 'red');
-        drawLines(search, 'blue');
-        drawLines(path, 'lime');
     }
 
     let drag = false;
@@ -172,7 +231,7 @@ const aStar = (nodes, start, end) => {
                 if (start === undefined || end) {
                     start = closest;
                     end = undefined;
-                    infoText.innerText = 'Select the target location';
+                    infoText.innerText = 'select the target location';
                     drawNode(start, 'lime');
                 }
                 else if (end === undefined) {
@@ -180,7 +239,7 @@ const aStar = (nodes, start, end) => {
                     drawNode(end, 'red');
                     search = [];
                     path = [];
-                    infoText.innerText = 'Finding route...';
+                    infoText.innerText = 'finding route...';
                     const [newSearch, newPath] = aStar(nodes, nodes.indexOf(start), nodes.indexOf(end));
                     drawing = true;
                     let additionSize = 1;
